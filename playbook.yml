@@ -1,6 +1,6 @@
 ---
 - hosts: master
-  remote_user: vagrant
+  remote_user: centos
   become: yes
   become_method: sudo
   tasks:
@@ -18,7 +18,7 @@
         yum: pkg=zookeeper,zookeeper-server state=latest
       - name: configure zookeeper ID
         become_user: zookeeper
-        shell: zookeeper-server-initialize --myid=1
+        shell: zookeeper-server-initialize --myid=1 --force
       - name: install mesos, marathon, chronos, and docker packages
         yum: pkg=device-mapper-event-libs,mesos,marathon,chronos,docker state=latest
       - name: configure containerizers
@@ -37,21 +37,42 @@
         service: name=docker state=started enabled=yes
       - name: install go, git, and dnsutil packages
         yum: pkg=golang,git,bind-utils state=latest
+      - name: copy marathon to the user directory
+        become_user: centos
+        copy: src=./marathon/ dest=/home/centos/marathon/
+      - name: copy chronos to the user directory
+        become_user: centos
+        copy: src=./chronos/ dest=/home/centos/chronos/
+      - name: make the dependent directory
+        become_user: centos
+        shell: mkdir -p /home/centos/chronos/dependent
+      - name: copy config.json to the user directory
+        become_user: centos
+        copy: src=./config.json dest=/home/centos/config.json
+      - name: copy installdns.sh to the user directory
+        become_user: centos
+        copy: src=./installdns.sh dest=/home/centos/installdns.sh
+      - name: copy outyet.tar.gz to the user directory
+        become_user: centos
+        copy: src=./outyet.tar.gz dest=/home/centos/outyet.tar.gz
+      - name: copy chronos-sync.rb to the user directory
+        become_user: centos
+        copy: src=./chronos-sync.rb dest=/home/centos/chronos-sync.rb
       - name: build/configure mesos-dns
-        become_user: vagrant
-        shell: sh /vagrant/installdns.sh
+        become_user: centos
+        shell: sh /home/centos/installdns.sh
+      - name: install ruby
+        yum: pkg=ruby state=latest
       - name: configure dns
         template: src=./resolv.conf.j2 dest=/etc/resolv.conf
       - name: install outyet
-        shell: docker load --input=/vagrant/outyet.tar.gz
+        shell: docker load --input=/home/centos/outyet.tar.gz
       - name: configure marathon services
-        shell: cd /vagrant/marathon && sh post.sh
-      - name: install ruby
-        yum: pkg=ruby state=latest
+        shell: cd /home/centos/marathon && sh post.sh
       - name: sync chronos jobs
-        shell: ruby /vagrant/chronos-sync.rb -u http://192.168.33.10:4400/ -p /vagrant/chronos
+        shell: ruby /home/centos/chronos-sync.rb -u http://54.88.255.4:4400/ -p /home/centos/chronos
 - hosts: nodes
-  remote_user: vagrant
+  remote_user: centos
   become: yes
   become_method: sudo
   tasks:
@@ -66,10 +87,13 @@
       - name: configure containerizers
         lineinfile: dest=/etc/mesos-slave/containerizers create=yes line="docker,mesos"
       - name: set zookeeper master
-        replace: dest=/etc/mesos/zk regexp="localhost" replace="192.168.33.10"
+        replace: dest=/etc/mesos/zk regexp="localhost" replace="54.88.255.4"
       - name: start mesos-slave
         service: name=mesos-slave state=started enabled=yes
       - name: start docker
         service: name=docker state=started enabled=yes
+      - name: copy outyet.tar.gz to the user directory
+        become_user: centos
+        copy: src=./outyet.tar.gz dest=/home/centos/outyet.tar.gz
       - name: install outyet
-        shell: docker load --input=/vagrant/outyet.tar.gz
+        shell: docker load --input=/home/centos/outyet.tar.gz

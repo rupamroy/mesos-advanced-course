@@ -1,0 +1,14 @@
+[master]
+54.88.255.4 ansible_user=centos
+
+[nodes]
+54.173.145.171 ansible_user=centos
+54.172.138.40 ansible_user=centos
+52.90.198.255 ansible_user=centos
+
+[hosts:children]
+master
+nodes
+
+[hosts:vars]
+ansible_ssh_private_key_file = ~/.ssh/rupam-keypair.pem
